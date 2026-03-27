@@ -1,3 +1,4 @@
+from fastapi.staticfiles import StaticFiles
 import os
 import tempfile
 import subprocess
@@ -9,7 +10,8 @@ from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse
 
 app = FastAPI(title="Word to Markdown Converter", version="1.0")
-
+# 挂载静态文件目录（提供 index.html）
+app.mount("/", StaticFiles(directory="static", html=True), name="static")
 # 从环境变量读取配置
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")  # 格式: username/word2md-images

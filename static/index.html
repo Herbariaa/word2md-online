@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Word 转 Markdown 工具</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      max-width: 600px;
+      margin: 50px auto;
+      padding: 20px;
+      background-color: #f9f9f9;
+      color: #333;
+    }
+    h1 {
+      text-align: center;
+      color: #2c3e50;
+    }
+    .upload-box {
+      border: 2px dashed #ccc;
+      border-radius: 8px;
+      padding: 40px 20px;
+      text-align: center;
+      background: white;
+      margin: 20px 0;
+    }
+    input[type="file"] {
+      margin: 10px 0;
+    }
+    button {
+      background-color: #3498db;
+      color: white;
+      border: none;
+      padding: 10px 20px;
+      font-size: 16px;
+      border-radius: 4px;
+      cursor: pointer;
+      width: 100%;
+    }
+    button:hover {
+      background-color: #2980b9;
+    }
+    button:disabled {
+      background-color: #bdc3c7;
+      cursor: not-allowed;
+    }
+    .result {
+      margin-top: 20px;
+      text-align: center;
+    }
+    .loading {
+      display: none;
+      color: #e74c3c;
+    }
+  </style>
+</head>
+<body>
+  <h1>📝 Word 转 Markdown</h1>
+  <div class="upload-box">
+    <p>选择一个 .docx 或 .doc 文件，自动转换为 Markdown（图片将上传至图床）</p>
+    <input type="file" id="fileInput" accept=".docx,.doc" required />
+    <button id="convertBtn">转换为 Markdown</button>
+    <div class="loading" id="loading">正在转换...请稍候（可能需要10-30秒）</div>
+  </div>
+
+  <div class="result" id="result"></div>
+
+  <script>
+    document.getElementById('convertBtn').addEventListener('click', async () => {
+      const fileInput = document.getElementById('fileInput');
+      const file = fileInput.files[0];
+      if (!file) {
+        alert('请选择一个文件！');
+        return;
+      }
+
+      if (!file.name.endsWith('.docx') && !file.name.endsWith('.doc')) {
+        alert('仅支持 .docx 或 .doc 文件！');
+        return;
+      }
+
+      if (file.size > 10 * 1024 * 1024) {
+        alert('文件不能超过 10MB！');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const btn = document.getElementById('convertBtn');
+      const loading = document.getElementById('loading');
+      const result = document.getElementById('result');
+
+      btn.disabled = true;
+      loading.style.display = 'block';
+      result.innerHTML = '';
+
+      try {
+        const response = await fetch('/convert', {
+          method: 'POST',
+          body: formData
+        });
+
+        if (response.ok) {
+          // 触发文件下载
+          const blob = await response.blob();
+          const url = window.URL.createObjectURL(blob);
+          const a = document.createElement('a');
+          a.href = url;
+          a.download = 'converted.md';
+          document.body.appendChild(a);
+          a.click();
+          window.URL.revokeObjectURL(url);
+          document.body.removeChild(a);
+
+          result.innerHTML = '<p style="color:green">✅ 转换成功！文件已开始下载。</p>';
+        } else {
+          const errorText = await response.text();
+          result.innerHTML = `<p style="color:red">❌ 转换失败：${errorText}</p>`;
+        }
+      } catch (err) {
+        result.innerHTML = `<p style="color:red">⚠️ 网络错误：${err.message}</p>`;
+      } finally {
+        btn.disabled = false;
+        loading.style.display = 'none';
+      }
+    });
+  </script>
+</body>
+</html>
