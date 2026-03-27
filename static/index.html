@@ -259,7 +259,7 @@
 
     .badge {
       display: inline-block;
-      background: #e5e7eb;
+      background: rgba(255, 255, 255, 0.2);
       padding: 4px 12px;
       border-radius: 20px;
       font-size: 0.75rem;
@@ -407,10 +407,10 @@
       convertBtn.disabled = false;
 
       // 格式化文件大小
-      const sizeKB = (file.size / 1024).toFixed(2);
-      const sizeStr = file.size > 1024 * 1024
-        ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
-        : sizeKB + ' KB';
+      const sizeMB = file.size / (1024 * 1024);
+      const sizeStr = sizeMB >= 1
+        ? sizeMB.toFixed(2) + ' MB'
+        : (file.size / 1024).toFixed(2) + ' KB';
 
       showStatus(`✓ 已选择: ${file.name} (${sizeStr})`, 'info');
     }
@@ -433,15 +433,14 @@
         });
 
         if (!response.ok) {
+          // 修复：只读取一次响应体
           let errorMsg = `转换失败 (HTTP ${response.status})`;
           try {
-            const error = await response.json();
-            errorMsg = error.detail || errorMsg;
+            const errorData = await response.json();
+            errorMsg = errorData.detail || errorMsg;
           } catch (e) {
-            const text = await response.text();
-            if (text && text.length < 200) {
-              errorMsg = text;
-            }
+            // 如果不是 JSON，尝试读取文本
+            errorMsg = await response.text() || errorMsg;
           }
           throw new Error(errorMsg);
         }
