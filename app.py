@@ -120,11 +120,10 @@ def docx_to_markdown(docx_path: str) -> str:
 @app.get("/")
 async def root():
     """返回前端页面"""
-    # 尝试多种可能的路径
     possible_paths = [
-        Path(__file__).parent / "static" / "index.html",  # 相对于 app.py
-        Path("/app/static/index.html"),  # Docker 容器内绝对路径
-        Path("static/index.html"),  # 当前工作目录
+        Path(__file__).parent / "static" / "index.html",
+        Path("/app/static/index.html"),
+        Path("static/index.html"),
     ]
     
     for path in possible_paths:
@@ -138,28 +137,14 @@ async def root():
                 print(f"读取文件失败: {e}")
                 continue
     
-    # 如果都没找到，返回调试信息
-    print(f"当前工作目录: {os.getcwd()}")
-    print(f"目录内容: {os.listdir('.')}")
-    if Path("static").exists():
-        print(f"static 目录内容: {os.listdir('static')}")
-    else:
-        print("static 目录不存在")
-    
-    return HTMLResponse(content=f"""
+    # 如果没有找到静态文件，返回简单的 HTML
+    return HTMLResponse(content="""
     <html>
-        <body>
-            <h1>Word to Markdown Converter</h1>
-            <p>静态文件未找到，但服务正常运行。</p>
-            <p>当前目录: {os.getcwd()}</p>
-            <p>目录内容: {os.listdir('.')}</p>
-            <p>请确保 static/index.html 文件存在。</p>
-            <hr>
-            <h2>API 端点:</h2>
-            <ul>
-                <li><a href="/health">/health</a> - 健康检查</li>
-                <li>POST /convert - 上传 .docx 文件</li>
-            </ul>
+        <body style="font-family: sans-serif; text-align: center; padding: 50px;">
+            <h1>📄 Word to Markdown Converter</h1>
+            <p>服务运行正常，但前端页面未找到。</p>
+            <p>请使用 POST /convert 接口上传文件。</p>
+            <p><a href="/health">健康检查</a></p>
         </body>
     </html>
     """)
@@ -191,35 +176,40 @@ async def convert_docx(file: UploadFile = File(...)):
             raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
         
         try:
-            # 转换为 Markdown
+            # 1. 转换为 Markdown
             markdown_content = docx_to_markdown(input_path)
             print(f"转换成功，内容长度: {len(markdown_content)}")
             
-            # 提取图片
+            # 2. 提取图片
             images = extract_images_from_docx(input_path)
             print(f"找到 {len(images)} 张图片")
             
-            # 上传图片
+            # 3. 上传图片并添加到 Markdown
             if images:
-                markdown_content += "\n\n## 图片附件\n\n"
-                for img_name, img_data in images.items():
+                markdown_content += "\n\n## 📷 图片附件\n\n"
+                for idx, (img_name, img_data) in enumerate(images.items(), 1):
                     try:
                         cdn_url = upload_image_to_github(img_data, img_name)
-                        markdown_content += f"![{img_name}]({cdn_url})\n\n"
-                        print(f"图片上传成功: {img_name}")
+                        markdown_content += f"![图片{idx}]({cdn_url})\n\n"
+                        print(f"图片上传成功: {img_name} -> {cdn_url}")
                     except Exception as e:
                         error_msg = f"图片 {img_name} 上传失败: {str(e)}"
                         print(error_msg)
-                        markdown_content += f"\n*{error_msg}*\n\n"
+                        markdown_content += f"\n*⚠️ {error_msg}*\n\n"
             
+            # 4. 确保有内容
             if not markdown_content.strip():
                 markdown_content = "# 转换结果\n\n文档内容为空或无法解析"
             
-            # 保存结果
+            # 5. 保存结果文件（注意：使用一致的文件名）
             output_path = os.path.join(tmpdir, "converted.md")
             with open(output_path, "w", encoding="utf-8") as f:
                 f.write(markdown_content)
             
+            print(f"Markdown 文件保存成功: {output_path}")
+            print(f"文件大小: {os.path.getsize(output_path)} 字节")
+            
+            # 6. 返回文件
             return FileResponse(
                 output_path,
                 media_type="text/markdown",
@@ -238,6 +228,9 @@ async def health():
         "status": "healthy",
         "github_repo": GITHUB_REPO,
         "github_token_configured": bool(GITHUB_TOKEN),
-        "working_directory": os.getcwd(),
-        "files": os.listdir('.')[:10]  # 返回前10个文件用于调试
+        "version": "2.0"
     }
+
+if __name__ == "__main__":
+    import uvicorn
+    uvicorn.run(app, host="0.0.0.0", port=8000)
