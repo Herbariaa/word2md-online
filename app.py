@@ -8,8 +8,10 @@ from pathlib import Path
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.background import BackgroundTask
 from docx import Document
 import requests
+import shutil
 
 app = FastAPI(title="Word to Markdown Converter", version="2.0")
 
@@ -116,6 +118,15 @@ def docx_to_markdown(docx_path: str) -> str:
         print(f"Error converting docx: {e}")
         raise
 
+def cleanup_file(file_path: str):
+    """清理临时文件"""
+    try:
+        if os.path.exists(file_path):
+            os.remove(file_path)
+            print(f"已清理临时文件: {file_path}")
+    except Exception as e:
+        print(f"清理文件失败: {e}")
+
 # ========== API 端点 ==========
 @app.get("/")
 async def root():
@@ -163,63 +174,77 @@ async def convert_docx(file: UploadFile = File(...)):
     if not GITHUB_TOKEN or not GITHUB_REPO:
         raise HTTPException(status_code=500, detail="服务器配置错误")
     
-    with tempfile.TemporaryDirectory() as tmpdir:
+    # 创建临时目录（不使用 with 语句，手动管理生命周期）
+    tmpdir = tempfile.mkdtemp()
+    output_path = None
+    
+    try:
         input_path = os.path.join(tmpdir, file.filename)
         
-        try:
-            content = await file.read()
-            with open(input_path, "wb") as f:
-                f.write(content)
-            print(f"文件保存成功: {input_path}, 大小: {len(content)} 字节")
-        except Exception as e:
-            print(f"文件保存失败: {e}")
-            raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+        # 保存上传的文件
+        content = await file.read()
+        with open(input_path, "wb") as f:
+            f.write(content)
+        print(f"文件保存成功: {input_path}, 大小: {len(content)} 字节")
         
-        try:
-            # 1. 转换为 Markdown
-            markdown_content = docx_to_markdown(input_path)
-            print(f"转换成功，内容长度: {len(markdown_content)}")
-            
-            # 2. 提取图片
-            images = extract_images_from_docx(input_path)
-            print(f"找到 {len(images)} 张图片")
-            
-            # 3. 上传图片并添加到 Markdown
-            if images:
-                markdown_content += "\n\n## 📷 图片附件\n\n"
-                for idx, (img_name, img_data) in enumerate(images.items(), 1):
-                    try:
-                        cdn_url = upload_image_to_github(img_data, img_name)
-                        markdown_content += f"![图片{idx}]({cdn_url})\n\n"
-                        print(f"图片上传成功: {img_name} -> {cdn_url}")
-                    except Exception as e:
-                        error_msg = f"图片 {img_name} 上传失败: {str(e)}"
-                        print(error_msg)
-                        markdown_content += f"\n*⚠️ {error_msg}*\n\n"
-            
-            # 4. 确保有内容
-            if not markdown_content.strip():
-                markdown_content = "# 转换结果\n\n文档内容为空或无法解析"
-            
-            # 5. 保存结果文件（注意：使用一致的文件名）
-            output_path = os.path.join(tmpdir, "converted.md")
-            with open(output_path, "w", encoding="utf-8") as f:
-                f.write(markdown_content)
-            
-            print(f"Markdown 文件保存成功: {output_path}")
-            print(f"文件大小: {os.path.getsize(output_path)} 字节")
-            
-            # 6. 返回文件
-            return FileResponse(
-                output_path,
-                media_type="text/markdown",
-                filename=Path(file.filename).stem + ".md"
-            )
-            
-        except Exception as e:
-            error_detail = traceback.format_exc()
-            print(f"转换失败:\n{error_detail}")
-            raise HTTPException(status_code=500, detail=f"转换失败: {str(e)}")
+        # 1. 转换为 Markdown
+        markdown_content = docx_to_markdown(input_path)
+        print(f"转换成功，内容长度: {len(markdown_content)}")
+        
+        # 2. 提取图片
+        images = extract_images_from_docx(input_path)
+        print(f"找到 {len(images)} 张图片")
+        
+        # 3. 上传图片并添加到 Markdown
+        if images:
+            markdown_content += "\n\n## 📷 图片附件\n\n"
+            for idx, (img_name, img_data) in enumerate(images.items(), 1):
+                try:
+                    cdn_url = upload_image_to_github(img_data, img_name)
+                    markdown_content += f"![图片{idx}]({cdn_url})\n\n"
+                    print(f"图片上传成功: {img_name}")
+                except Exception as e:
+                    error_msg = f"图片 {img_name} 上传失败: {str(e)}"
+                    print(error_msg)
+                    markdown_content += f"\n*⚠️ {error_msg}*\n\n"
+        
+        # 4. 确保有内容
+        if not markdown_content.strip():
+            markdown_content = "# 转换结果\n\n文档内容为空或无法解析"
+        
+        # 5. 保存结果文件
+        output_path = os.path.join(tmpdir, "converted.md")
+        with open(output_path, "w", encoding="utf-8") as f:
+            f.write(markdown_content)
+        
+        print(f"Markdown 文件保存成功: {output_path}")
+        print(f"文件大小: {os.path.getsize(output_path)} 字节")
+        
+        # 6. 返回文件，并在发送后清理临时目录
+        filename = Path(file.filename).stem + ".md"
+        
+        # 创建清理任务
+        def cleanup():
+            try:
+                shutil.rmtree(tmpdir, ignore_errors=True)
+                print(f"已清理临时目录: {tmpdir}")
+            except Exception as e:
+                print(f"清理临时目录失败: {e}")
+        
+        return FileResponse(
+            output_path,
+            media_type="text/markdown",
+            filename=filename,
+            background=BackgroundTask(cleanup)
+        )
+        
+    except Exception as e:
+        # 发生错误时清理临时目录
+        if tmpdir and os.path.exists(tmpdir):
+            shutil.rmtree(tmpdir, ignore_errors=True)
+        error_detail = traceback.format_exc()
+        print(f"转换失败:\n{error_detail}")
+        raise HTTPException(status_code=500, detail=f"转换失败: {str(e)}")
 
 @app.get("/health")
 async def health():

@@ -433,14 +433,21 @@
         });
 
         if (!response.ok) {
-          // 修复：只读取一次响应体
+          // 修复响应读取问题：先获取文本，再尝试解析 JSON
           let errorMsg = `转换失败 (HTTP ${response.status})`;
           try {
-            const errorData = await response.json();
-            errorMsg = errorData.detail || errorMsg;
+            const errorText = await response.text();
+            try {
+              const errorJson = JSON.parse(errorText);
+              errorMsg = errorJson.detail || errorMsg;
+            } catch {
+              // 如果不是 JSON，使用原始文本
+              if (errorText && errorText.length < 500) {
+                errorMsg = errorText;
+              }
+            }
           } catch (e) {
-            // 如果不是 JSON，尝试读取文本
-            errorMsg = await response.text() || errorMsg;
+            console.error('读取错误响应失败:', e);
           }
           throw new Error(errorMsg);
         }
@@ -458,11 +465,18 @@
 
         showStatus('✅ 转换成功！文件已自动开始下载', 'success');
 
+        // 重置状态，允许继续转换其他文件
+        setTimeout(() => {
+          selectedFile = null;
+          convertBtn.disabled = true;
+          fileInput.value = '';
+        }, 1000);
+
       } catch (error) {
         console.error('转换错误:', error);
         showStatus(`❌ 转换失败: ${error.message}`, 'error');
+        // 恢复按钮，但不清空选中的文件，让用户可以重试
       } finally {
-        // 恢复按钮状态
         convertBtn.disabled = false;
         convertBtn.innerHTML = '✨ 转换为 Markdown';
       }
@@ -473,7 +487,7 @@
       statusDiv.innerHTML = message;
       statusDiv.style.display = 'block';
 
-      // 信息类消息 5 秒后自动隐藏，错误和成功保留
+      // 信息类消息 5 秒后自动隐藏
       if (type === 'info') {
         setTimeout(() => {
           if (statusDiv.className === `status ${type}`) {
