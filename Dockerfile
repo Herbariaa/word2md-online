@@ -1,21 +1,23 @@
 FROM python:3.11-slim
 
-# 安装 LibreOffice 和 Pandoc（关键！）
+WORKDIR /app
+
+# 安装必要工具
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
-        libreoffice-core \
-        libreoffice-writer \
-        pandoc \
-        ca-certificates && \
+        ca-certificates \
+        && \
     rm -rf /var/lib/apt/lists/*
-
-WORKDIR /app
 
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
 COPY app.py .
-COPY static/ ./static/
+
+# 创建非 root 用户运行
+RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
+USER appuser
+
 EXPOSE 8000
 
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]
