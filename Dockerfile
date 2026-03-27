@@ -12,11 +12,8 @@ RUN apt-get update && \
 COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 
-COPY app.py .
-
-# 创建非 root 用户运行
-RUN useradd -m -u 1000 appuser && chown -R appuser:appuser /app
-USER appuser
+# 复制所有文件（包括 static 目录）
+COPY . .
 
 EXPOSE 8000
 

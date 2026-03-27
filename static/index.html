@@ -3,8 +3,10 @@
 
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Word 转 Markdown - 在线工具</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+  <title>Word 转 Markdown - 在线免费转换工具</title>
+  <meta name="description" content="免费在线将Word文档转换为Markdown格式，图片自动上传图床，支持.docx文件，完全免费开源">
+  <meta name="keywords" content="Word转Markdown, docx转md, 在线转换, 免费工具">
   <style>
     * {
       margin: 0;
@@ -13,118 +15,177 @@
     }
 
     body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, 'Noto Sans', sans-serif;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       min-height: 100vh;
       padding: 20px;
     }
 
     .container {
-      max-width: 800px;
+      max-width: 900px;
       margin: 0 auto;
       background: white;
-      border-radius: 20px;
-      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      border-radius: 24px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
       overflow: hidden;
+      animation: fadeIn 0.5s ease-out;
+    }
+
+    @keyframes fadeIn {
+      from {
+        opacity: 0;
+        transform: translateY(20px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .header {
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
-      padding: 40px;
+      padding: 48px 40px;
       text-align: center;
     }
 
     .header h1 {
-      font-size: 2.5em;
-      margin-bottom: 10px;
+      font-size: 2.5rem;
+      margin-bottom: 12px;
+      font-weight: 700;
     }
 
     .header p {
-      opacity: 0.9;
-      font-size: 1.1em;
+      opacity: 0.95;
+      font-size: 1.1rem;
+      line-height: 1.5;
     }
 
     .content {
-      padding: 40px;
+      padding: 48px 40px;
     }
 
     .upload-area {
-      border: 2px dashed #ddd;
-      border-radius: 10px;
-      padding: 40px;
+      border: 2px dashed #d1d5db;
+      border-radius: 16px;
+      padding: 48px 32px;
       text-align: center;
       cursor: pointer;
-      transition: all 0.3s;
-      margin-bottom: 20px;
+      transition: all 0.3s ease;
+      background: #fafbfc;
+      margin-bottom: 24px;
     }
 
     .upload-area:hover {
       border-color: #667eea;
       background: #f8f9ff;
+      transform: translateY(-2px);
     }
 
     .upload-area.dragover {
       border-color: #667eea;
       background: #f0f2ff;
+      border-style: solid;
+    }
+
+    .upload-icon {
+      font-size: 4rem;
+      margin-bottom: 16px;
+    }
+
+    .upload-title {
+      font-size: 1.25rem;
+      font-weight: 500;
+      color: #374151;
+      margin-bottom: 8px;
     }
 
     .file-info {
-      margin-top: 15px;
-      color: #666;
-      font-size: 0.9em;
+      color: #6b7280;
+      font-size: 0.875rem;
+      margin-top: 12px;
+    }
+
+    .file-info span {
+      background: #e5e7eb;
+      padding: 4px 8px;
+      border-radius: 6px;
+      font-family: monospace;
+      font-size: 0.8rem;
     }
 
     input[type="file"] {
       display: none;
     }
 
-    button {
+    .convert-btn {
       width: 100%;
-      padding: 15px;
+      padding: 16px;
       background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      border-radius: 10px;
-      font-size: 1.1em;
+      border-radius: 12px;
+      font-size: 1.125rem;
+      font-weight: 600;
       cursor: pointer;
-      transition: transform 0.2s;
+      transition: all 0.2s ease;
+      box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
     }
 
-    button:hover:not(:disabled) {
+    .convert-btn:hover:not(:disabled) {
       transform: translateY(-2px);
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
     }
 
-    button:disabled {
+    .convert-btn:active:not(:disabled) {
+      transform: translateY(0);
+    }
+
+    .convert-btn:disabled {
       opacity: 0.6;
       cursor: not-allowed;
+      transform: none;
     }
 
     .status {
-      margin-top: 20px;
-      padding: 15px;
-      border-radius: 10px;
+      margin-top: 24px;
+      padding: 16px 20px;
+      border-radius: 12px;
       display: none;
+      animation: slideIn 0.3s ease-out;
+    }
+
+    @keyframes slideIn {
+      from {
+        opacity: 0;
+        transform: translateY(-10px);
+      }
+
+      to {
+        opacity: 1;
+        transform: translateY(0);
+      }
     }
 
     .status.success {
-      background: #d4edda;
-      color: #155724;
-      border: 1px solid #c3e6cb;
+      background: #d1fae5;
+      color: #065f46;
+      border-left: 4px solid #10b981;
       display: block;
     }
 
     .status.error {
-      background: #f8d7da;
-      color: #721c24;
-      border: 1px solid #f5c6cb;
+      background: #fee2e2;
+      color: #991b1b;
+      border-left: 4px solid #ef4444;
       display: block;
     }
 
     .status.info {
-      background: #d1ecf1;
-      color: #0c5460;
-      border: 1px solid #bee5eb;
+      background: #dbeafe;
+      color: #1e40af;
+      border-left: 4px solid #3b82f6;
       display: block;
     }
 
@@ -132,10 +193,12 @@
       display: inline-block;
       width: 20px;
       height: 20px;
-      border: 3px solid rgba(255, 255, 255, .3);
+      border: 2px solid rgba(255, 255, 255, 0.3);
       border-radius: 50%;
       border-top-color: white;
-      animation: spin 1s ease-in-out infinite;
+      animation: spin 0.8s linear infinite;
+      margin-right: 8px;
+      vertical-align: middle;
     }
 
     @keyframes spin {
@@ -144,12 +207,45 @@
       }
     }
 
-    .footer {
-      background: #f8f9fa;
-      padding: 20px;
+    .features {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 40px;
+      padding-top: 32px;
+      border-top: 1px solid #e5e7eb;
+      gap: 20px;
+      flex-wrap: wrap;
+    }
+
+    .feature {
       text-align: center;
-      color: #666;
-      font-size: 0.9em;
+      flex: 1;
+      min-width: 120px;
+    }
+
+    .feature-icon {
+      font-size: 2rem;
+      margin-bottom: 12px;
+    }
+
+    .feature-title {
+      font-weight: 600;
+      color: #374151;
+      margin-bottom: 4px;
+    }
+
+    .feature-text {
+      color: #6b7280;
+      font-size: 0.8rem;
+    }
+
+    .footer {
+      background: #f9fafb;
+      padding: 24px 40px;
+      text-align: center;
+      color: #6b7280;
+      font-size: 0.875rem;
+      border-top: 1px solid #e5e7eb;
     }
 
     .footer a {
@@ -157,27 +253,39 @@
       text-decoration: none;
     }
 
-    .features {
-      display: flex;
-      justify-content: space-around;
-      margin-top: 30px;
-      padding-top: 20px;
-      border-top: 1px solid #eee;
+    .footer a:hover {
+      text-decoration: underline;
     }
 
-    .feature {
-      text-align: center;
-      flex: 1;
+    .badge {
+      display: inline-block;
+      background: #e5e7eb;
+      padding: 4px 12px;
+      border-radius: 20px;
+      font-size: 0.75rem;
+      margin-top: 12px;
     }
 
-    .feature-icon {
-      font-size: 2em;
-      margin-bottom: 10px;
-    }
+    @media (max-width: 640px) {
+      .header {
+        padding: 32px 20px;
+      }
 
-    .feature-text {
-      color: #666;
-      font-size: 0.9em;
+      .header h1 {
+        font-size: 1.75rem;
+      }
+
+      .content {
+        padding: 32px 20px;
+      }
+
+      .upload-area {
+        padding: 32px 20px;
+      }
+
+      .features {
+        gap: 16px;
+      }
     }
   </style>
 </head>
@@ -186,43 +294,64 @@
   <div class="container">
     <div class="header">
       <h1>📄 Word 转 Markdown</h1>
-      <p>上传 Word 文档，自动转换为 Markdown 格式，图片自动上传图床</p>
+      <p>上传 Word 文档，自动转换为 Markdown 格式<br>图片自动上传至图床，获取永久外链</p>
+      <div class="badge">⚡ 完全免费 | 🔓 开源</div>
     </div>
 
     <div class="content">
       <div class="upload-area" id="uploadArea">
-        <div>📁 点击或拖拽文件到此处</div>
-        <div class="file-info">支持 .docx 格式，文件大小不超过 10MB</div>
+        <div class="upload-icon">📁</div>
+        <div class="upload-title">点击或拖拽文件到此处</div>
+        <div class="file-info">
+          支持 <span>.docx</span> 格式，文件大小不超过 <span>10MB</span>
+        </div>
         <input type="file" id="fileInput" accept=".docx">
       </div>
 
-      <button id="convertBtn" disabled>转换为 Markdown</button>
+      <button class="convert-btn" id="convertBtn" disabled>
+        ✨ 转换为 Markdown
+      </button>
 
       <div id="status" class="status"></div>
 
       <div class="features">
         <div class="feature">
           <div class="feature-icon">🔄</div>
-          <div class="feature-text">自动转换格式</div>
+          <div class="feature-title">自动转换</div>
+          <div class="feature-text">保留标题、段落、表格</div>
         </div>
         <div class="feature">
           <div class="feature-icon">🖼️</div>
-          <div class="feature-text">图片自动上传</div>
+          <div class="feature-title">图片上传</div>
+          <div class="feature-text">自动上传 GitHub 图床</div>
         </div>
         <div class="feature">
           <div class="feature-icon">⚡</div>
-          <div class="feature-text">完全免费使用</div>
+          <div class="feature-title">CDN 加速</div>
+          <div class="feature-text">jsDelivr 全球加速</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🔒</div>
+          <div class="feature-title">隐私保护</div>
+          <div class="feature-text">文件不保存，即时转换</div>
         </div>
       </div>
     </div>
 
     <div class="footer">
-      <p>🔒 图片上传至 GitHub 图床 | 使用 jsDelivr CDN 加速 | <a href="https://github.com/Herbariaa/word2md-online"
-          target="_blank">开源代码</a></p>
+      <p>🔗 图片存储于 GitHub 仓库 | 使用 jsDelivr CDN 全球加速</p>
+      <p style="margin-top: 8px">
+        <a href="https://github.com/Herbariaa/word2md-online" target="_blank">📦 开源代码</a> |
+        <a href="/health" target="_blank">❤️ 健康检查</a>
+      </p>
+      <p style="margin-top: 12px; font-size: 0.75rem">
+        ⚠️ 仅支持 .docx 格式，图片将上传至 word2md-images 仓库
+      </p>
     </div>
   </div>
 
   <script>
+    // DOM 元素
     const uploadArea = document.getElementById('uploadArea');
     const fileInput = document.getElementById('fileInput');
     const convertBtn = document.getElementById('convertBtn');
@@ -264,27 +393,35 @@
     function handleFile(file) {
       // 检查文件类型
       if (!file.name.toLowerCase().endsWith('.docx')) {
-        showStatus('请选择 .docx 格式的文件', 'error');
+        showStatus('❌ 请选择 .docx 格式的文件（暂不支持 .doc）', 'error');
         return;
       }
 
       // 检查文件大小
       if (file.size > 10 * 1024 * 1024) {
-        showStatus('文件大小不能超过 10MB', 'error');
+        showStatus('❌ 文件大小不能超过 10MB', 'error');
         return;
       }
 
       selectedFile = file;
       convertBtn.disabled = false;
-      showStatus(`✓ 已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+
+      // 格式化文件大小
+      const sizeKB = (file.size / 1024).toFixed(2);
+      const sizeStr = file.size > 1024 * 1024
+        ? (file.size / (1024 * 1024)).toFixed(2) + ' MB'
+        : sizeKB + ' KB';
+
+      showStatus(`✓ 已选择: ${file.name} (${sizeStr})`, 'info');
     }
 
     convertBtn.addEventListener('click', async () => {
       if (!selectedFile) return;
 
+      // 禁用按钮，显示加载状态
       convertBtn.disabled = true;
-      convertBtn.innerHTML = '<span class="spinner"></span> 转换中...';
-      showStatus('🔄 正在转换中，请稍候...', 'info');
+      convertBtn.innerHTML = '<span class="spinner"></span> 转换中，请稍候...';
+      showStatus('🔄 正在转换文档，图片将自动上传至图床...', 'info');
 
       const formData = new FormData();
       formData.append('file', selectedFile);
@@ -296,35 +433,39 @@
         });
 
         if (!response.ok) {
-          let errorMsg = `转换失败 (${response.status})`;
+          let errorMsg = `转换失败 (HTTP ${response.status})`;
           try {
             const error = await response.json();
             errorMsg = error.detail || errorMsg;
           } catch (e) {
-            errorMsg = await response.text() || errorMsg;
+            const text = await response.text();
+            if (text && text.length < 200) {
+              errorMsg = text;
+            }
           }
           throw new Error(errorMsg);
         }
 
-        // 下载文件
+        // 获取文件并下载
         const blob = await response.blob();
         const url = window.URL.createObjectURL(blob);
         const a = document.createElement('a');
         a.href = url;
-        a.download = selectedFile.name.replace(/\.docx$/, '.md');
+        a.download = selectedFile.name.replace(/\.docx$/i, '.md');
         document.body.appendChild(a);
         a.click();
         document.body.removeChild(a);
         window.URL.revokeObjectURL(url);
 
-        showStatus('✅ 转换成功！文件已开始下载', 'success');
+        showStatus('✅ 转换成功！文件已自动开始下载', 'success');
 
       } catch (error) {
-        console.error('Error:', error);
+        console.error('转换错误:', error);
         showStatus(`❌ 转换失败: ${error.message}`, 'error');
       } finally {
+        // 恢复按钮状态
         convertBtn.disabled = false;
-        convertBtn.innerHTML = '转换为 Markdown';
+        convertBtn.innerHTML = '✨ 转换为 Markdown';
       }
     });
 
@@ -333,7 +474,7 @@
       statusDiv.innerHTML = message;
       statusDiv.style.display = 'block';
 
-      // 5秒后自动隐藏（错误和成功消息保留更长时间）
+      // 信息类消息 5 秒后自动隐藏，错误和成功保留
       if (type === 'info') {
         setTimeout(() => {
           if (statusDiv.className === `status ${type}`) {
@@ -342,6 +483,9 @@
         }, 5000);
       }
     }
+
+    // 页面加载完成后的提示
+    console.log('Word to Markdown 转换工具已加载');
   </script>
 </body>
 

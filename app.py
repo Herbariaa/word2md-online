@@ -8,7 +8,6 @@ from pathlib import Path
 from fastapi import FastAPI, File, UploadFile, HTTPException
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.staticfiles import StaticFiles
 from docx import Document
 import requests
 
@@ -22,30 +21,23 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# 挂载静态文件（如果存在）
-static_dir = Path(__file__).parent / "static"
-if static_dir.exists():
-    app.mount("/static", StaticFiles(directory="static"), name="static")
-
 # 从环境变量读取配置
 GITHUB_TOKEN = os.getenv("GITHUB_TOKEN")
 GITHUB_REPO = os.getenv("GITHUB_REPO")
 
+# ========== 辅助函数 ==========
 def upload_image_to_github(image_data: bytes, image_name: str) -> str:
-    """上传图片到 GitHub 仓库，返回 CDN 链接"""
     try:
         hash_name = hashlib.md5(image_data).hexdigest()[:12]
         safe_name = f"{hash_name}_{image_name}"
-        
         content = base64.b64encode(image_data).decode("utf-8")
-        
         url = f"https://api.github.com/repos/{GITHUB_REPO}/contents/images/{safe_name}"
         headers = {
             "Authorization": f"token {GITHUB_TOKEN}",
             "Accept": "application/vnd.github.v3+json"
         }
         
-        # 先检查文件是否已存在
+        # 检查文件是否已存在
         check_resp = requests.get(url, headers=headers)
         if check_resp.status_code == 200:
             username, repo = GITHUB_REPO.split("/")
@@ -56,36 +48,29 @@ def upload_image_to_github(image_data: bytes, image_name: str) -> str:
             "content": content,
             "branch": "main"
         }
-        
         resp = requests.put(url, json=data, headers=headers)
         
         if resp.status_code in [200, 201]:
             username, repo = GITHUB_REPO.split("/")
             return f"https://cdn.jsdelivr.net/gh/{username}/{repo}@main/images/{safe_name}"
-        else:
-            raise Exception(f"GitHub API returned {resp.status_code}")
-            
+        raise Exception(f"GitHub API returned {resp.status_code}")
     except Exception as e:
         print(f"Upload error: {str(e)}")
         raise
 
 def extract_images_from_docx(docx_path: str) -> dict:
-    """从 docx 文件中提取所有图片"""
     images = {}
     try:
         with zipfile.ZipFile(docx_path, 'r') as docx_zip:
             for file_info in docx_zip.filelist:
                 if file_info.filename.startswith('word/media/') and not file_info.filename.endswith('/'):
                     image_name = os.path.basename(file_info.filename)
-                    image_data = docx_zip.read(file_info.filename)
-                    images[image_name] = image_data
+                    images[image_name] = docx_zip.read(file_info.filename)
     except Exception as e:
         print(f"Error extracting images: {e}")
-    
     return images
 
 def docx_to_markdown(docx_path: str) -> str:
-    """将 docx 转换为 Markdown"""
     try:
         doc = Document(docx_path)
         markdown_lines = []
@@ -95,7 +80,6 @@ def docx_to_markdown(docx_path: str) -> str:
             if not text:
                 continue
             
-            # 检查是否是标题
             if paragraph.style and paragraph.style.name:
                 style_name = paragraph.style.name.lower()
                 if 'heading' in style_name:
@@ -113,53 +97,76 @@ def docx_to_markdown(docx_path: str) -> str:
                     markdown_lines.append(f"{'#' * level} {text}")
                     continue
             
-            # 普通段落
             markdown_lines.append(text)
         
         # 处理表格
         for table in doc.tables:
             if len(table.rows) > 0:
                 markdown_lines.append("")
-                
                 header_cells = [cell.text.strip() for cell in table.rows[0].cells]
                 markdown_lines.append("| " + " | ".join(header_cells) + " |")
                 markdown_lines.append("|" + "|".join([" --- " for _ in header_cells]) + "|")
-                
                 for row in table.rows[1:]:
                     cells = [cell.text.strip() for cell in row.cells]
                     markdown_lines.append("| " + " | ".join(cells) + " |")
-                
                 markdown_lines.append("")
         
         return "\n\n".join(markdown_lines) if markdown_lines else "# 转换结果\n\n文档内容为空"
-        
     except Exception as e:
         print(f"Error converting docx: {e}")
         raise
 
+# ========== API 端点 ==========
 @app.get("/")
 async def root():
-    # 如果存在静态文件，返回 HTML 页面
-    static_index = Path(__file__).parent / "static" / "index.html"
-    if static_index.exists():
-        with open(static_index, "r", encoding="utf-8") as f:
-            return HTMLResponse(content=f.read())
+    """返回前端页面"""
+    # 尝试多种可能的路径
+    possible_paths = [
+        Path(__file__).parent / "static" / "index.html",  # 相对于 app.py
+        Path("/app/static/index.html"),  # Docker 容器内绝对路径
+        Path("static/index.html"),  # 当前工作目录
+    ]
     
-    # 否则返回 JSON
-    return {
-        "message": "Word to Markdown Converter 运行中",
-        "version": "2.0",
-        "status": "ok",
-        "endpoints": {
-            "convert": "POST /convert - 上传 .docx 文件",
-            "health": "GET /health - 健康检查"
-        }
-    }
+    for path in possible_paths:
+        if path.exists():
+            print(f"找到静态文件: {path}")
+            try:
+                with open(path, "r", encoding="utf-8") as f:
+                    content = f.read()
+                return HTMLResponse(content=content)
+            except Exception as e:
+                print(f"读取文件失败: {e}")
+                continue
+    
+    # 如果都没找到，返回调试信息
+    print(f"当前工作目录: {os.getcwd()}")
+    print(f"目录内容: {os.listdir('.')}")
+    if Path("static").exists():
+        print(f"static 目录内容: {os.listdir('static')}")
+    else:
+        print("static 目录不存在")
+    
+    return HTMLResponse(content=f"""
+    <html>
+        <body>
+            <h1>Word to Markdown Converter</h1>
+            <p>静态文件未找到，但服务正常运行。</p>
+            <p>当前目录: {os.getcwd()}</p>
+            <p>目录内容: {os.listdir('.')}</p>
+            <p>请确保 static/index.html 文件存在。</p>
+            <hr>
+            <h2>API 端点:</h2>
+            <ul>
+                <li><a href="/health">/health</a> - 健康检查</li>
+                <li>POST /convert - 上传 .docx 文件</li>
+            </ul>
+        </body>
+    </html>
+    """)
 
 @app.post("/convert")
 async def convert_docx(file: UploadFile = File(...)):
     """转换 Word 文档为 Markdown"""
-    
     print(f"收到文件: {file.filename}")
     
     if not file.filename.lower().endswith('.docx'):
@@ -226,8 +233,11 @@ async def convert_docx(file: UploadFile = File(...)):
 
 @app.get("/health")
 async def health():
+    """健康检查端点"""
     return {
         "status": "healthy",
         "github_repo": GITHUB_REPO,
-        "github_token_configured": bool(GITHUB_TOKEN)
+        "github_token_configured": bool(GITHUB_TOKEN),
+        "working_directory": os.getcwd(),
+        "files": os.listdir('.')[:10]  # 返回前10个文件用于调试
     }
