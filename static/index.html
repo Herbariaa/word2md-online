@@ -1,100 +1,293 @@
 <!DOCTYPE html>
 <html lang="zh-CN">
+
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Word 转 Markdown 工具</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Word 转 Markdown - 在线工具</title>
   <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
     body {
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      max-width: 600px;
-      margin: 50px auto;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
       padding: 20px;
-      background-color: #f9f9f9;
-      color: #333;
     }
-    h1 {
-      text-align: center;
-      color: #2c3e50;
-    }
-    .upload-box {
-      border: 2px dashed #ccc;
-      border-radius: 8px;
-      padding: 40px 20px;
-      text-align: center;
+
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
       background: white;
-      margin: 20px 0;
+      border-radius: 20px;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+      overflow: hidden;
     }
+
+    .header {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      text-align: center;
+    }
+
+    .header h1 {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .header p {
+      opacity: 0.9;
+      font-size: 1.1em;
+    }
+
+    .content {
+      padding: 40px;
+    }
+
+    .upload-area {
+      border: 2px dashed #ddd;
+      border-radius: 10px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: all 0.3s;
+      margin-bottom: 20px;
+    }
+
+    .upload-area:hover {
+      border-color: #667eea;
+      background: #f8f9ff;
+    }
+
+    .upload-area.dragover {
+      border-color: #667eea;
+      background: #f0f2ff;
+    }
+
+    .file-info {
+      margin-top: 15px;
+      color: #666;
+      font-size: 0.9em;
+    }
+
     input[type="file"] {
-      margin: 10px 0;
+      display: none;
     }
+
     button {
-      background-color: #3498db;
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
       color: white;
       border: none;
-      padding: 10px 20px;
-      font-size: 16px;
-      border-radius: 4px;
+      border-radius: 10px;
+      font-size: 1.1em;
       cursor: pointer;
-      width: 100%;
+      transition: transform 0.2s;
     }
-    button:hover {
-      background-color: #2980b9;
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
     }
+
     button:disabled {
-      background-color: #bdc3c7;
+      opacity: 0.6;
       cursor: not-allowed;
     }
-    .result {
+
+    .status {
       margin-top: 20px;
-      text-align: center;
-    }
-    .loading {
+      padding: 15px;
+      border-radius: 10px;
       display: none;
-      color: #e74c3c;
+    }
+
+    .status.success {
+      background: #d4edda;
+      color: #155724;
+      border: 1px solid #c3e6cb;
+      display: block;
+    }
+
+    .status.error {
+      background: #f8d7da;
+      color: #721c24;
+      border: 1px solid #f5c6cb;
+      display: block;
+    }
+
+    .status.info {
+      background: #d1ecf1;
+      color: #0c5460;
+      border: 1px solid #bee5eb;
+      display: block;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 20px;
+      height: 20px;
+      border: 3px solid rgba(255, 255, 255, .3);
+      border-radius: 50%;
+      border-top-color: white;
+      animation: spin 1s ease-in-out infinite;
+    }
+
+    @keyframes spin {
+      to {
+        transform: rotate(360deg);
+      }
+    }
+
+    .footer {
+      background: #f8f9fa;
+      padding: 20px;
+      text-align: center;
+      color: #666;
+      font-size: 0.9em;
+    }
+
+    .footer a {
+      color: #667eea;
+      text-decoration: none;
+    }
+
+    .features {
+      display: flex;
+      justify-content: space-around;
+      margin-top: 30px;
+      padding-top: 20px;
+      border-top: 1px solid #eee;
+    }
+
+    .feature {
+      text-align: center;
+      flex: 1;
+    }
+
+    .feature-icon {
+      font-size: 2em;
+      margin-bottom: 10px;
+    }
+
+    .feature-text {
+      color: #666;
+      font-size: 0.9em;
     }
   </style>
 </head>
+
 <body>
-  <h1>📝 Word 转 Markdown</h1>
-  <div class="upload-box">
-    <p>选择一个 .docx 或 .doc 文件，自动转换为 Markdown（图片将上传至图床）</p>
-    <input type="file" id="fileInput" accept=".docx,.doc" required />
-    <button id="convertBtn">转换为 Markdown</button>
-    <div class="loading" id="loading">正在转换...请稍候（可能需要10-30秒）</div>
+  <div class="container">
+    <div class="header">
+      <h1>📄 Word 转 Markdown</h1>
+      <p>上传 Word 文档，自动转换为 Markdown 格式，图片自动上传图床</p>
+    </div>
+
+    <div class="content">
+      <div class="upload-area" id="uploadArea">
+        <div>📁 点击或拖拽文件到此处</div>
+        <div class="file-info">支持 .docx 格式，文件大小不超过 10MB</div>
+        <input type="file" id="fileInput" accept=".docx">
+      </div>
+
+      <button id="convertBtn" disabled>转换为 Markdown</button>
+
+      <div id="status" class="status"></div>
+
+      <div class="features">
+        <div class="feature">
+          <div class="feature-icon">🔄</div>
+          <div class="feature-text">自动转换格式</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">🖼️</div>
+          <div class="feature-text">图片自动上传</div>
+        </div>
+        <div class="feature">
+          <div class="feature-icon">⚡</div>
+          <div class="feature-text">完全免费使用</div>
+        </div>
+      </div>
+    </div>
+
+    <div class="footer">
+      <p>🔒 图片上传至 GitHub 图床 | 使用 jsDelivr CDN 加速 | <a href="https://github.com/Herbariaa/word2md-online"
+          target="_blank">开源代码</a></p>
+    </div>
   </div>
 
-  <div class="result" id="result"></div>
-
   <script>
-    document.getElementById('convertBtn').addEventListener('click', async () => {
-      const fileInput = document.getElementById('fileInput');
-      const file = fileInput.files[0];
-      if (!file) {
-        alert('请选择一个文件！');
+    const uploadArea = document.getElementById('uploadArea');
+    const fileInput = document.getElementById('fileInput');
+    const convertBtn = document.getElementById('convertBtn');
+    const statusDiv = document.getElementById('status');
+
+    let selectedFile = null;
+
+    // 点击上传区域
+    uploadArea.addEventListener('click', () => {
+      fileInput.click();
+    });
+
+    // 拖拽上传
+    uploadArea.addEventListener('dragover', (e) => {
+      e.preventDefault();
+      uploadArea.classList.add('dragover');
+    });
+
+    uploadArea.addEventListener('dragleave', () => {
+      uploadArea.classList.remove('dragover');
+    });
+
+    uploadArea.addEventListener('drop', (e) => {
+      e.preventDefault();
+      uploadArea.classList.remove('dragover');
+      const files = e.dataTransfer.files;
+      if (files.length > 0) {
+        handleFile(files[0]);
+      }
+    });
+
+    // 文件选择
+    fileInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        handleFile(e.target.files[0]);
+      }
+    });
+
+    function handleFile(file) {
+      // 检查文件类型
+      if (!file.name.toLowerCase().endsWith('.docx')) {
+        showStatus('请选择 .docx 格式的文件', 'error');
         return;
       }
 
-      if (!file.name.endsWith('.docx') && !file.name.endsWith('.doc')) {
-        alert('仅支持 .docx 或 .doc 文件！');
-        return;
-      }
-
+      // 检查文件大小
       if (file.size > 10 * 1024 * 1024) {
-        alert('文件不能超过 10MB！');
+        showStatus('文件大小不能超过 10MB', 'error');
         return;
       }
+
+      selectedFile = file;
+      convertBtn.disabled = false;
+      showStatus(`✓ 已选择: ${file.name} (${(file.size / 1024).toFixed(2)} KB)`, 'info');
+    }
+
+    convertBtn.addEventListener('click', async () => {
+      if (!selectedFile) return;
+
+      convertBtn.disabled = true;
+      convertBtn.innerHTML = '<span class="spinner"></span> 转换中...';
+      showStatus('🔄 正在转换中，请稍候...', 'info');
 
       const formData = new FormData();
-      formData.append('file', file);
-
-      const btn = document.getElementById('convertBtn');
-      const loading = document.getElementById('loading');
-      const result = document.getElementById('result');
-
-      btn.disabled = true;
-      loading.style.display = 'block';
-      result.innerHTML = '';
+      formData.append('file', selectedFile);
 
       try {
         const response = await fetch('/convert', {
@@ -102,30 +295,54 @@
           body: formData
         });
 
-        if (response.ok) {
-          // 触发文件下载
-          const blob = await response.blob();
-          const url = window.URL.createObjectURL(blob);
-          const a = document.createElement('a');
-          a.href = url;
-          a.download = 'converted.md';
-          document.body.appendChild(a);
-          a.click();
-          window.URL.revokeObjectURL(url);
-          document.body.removeChild(a);
-
-          result.innerHTML = '<p style="color:green">✅ 转换成功！文件已开始下载。</p>';
-        } else {
-          const errorText = await response.text();
-          result.innerHTML = `<p style="color:red">❌ 转换失败：${errorText}</p>`;
+        if (!response.ok) {
+          let errorMsg = `转换失败 (${response.status})`;
+          try {
+            const error = await response.json();
+            errorMsg = error.detail || errorMsg;
+          } catch (e) {
+            errorMsg = await response.text() || errorMsg;
+          }
+          throw new Error(errorMsg);
         }
-      } catch (err) {
-        result.innerHTML = `<p style="color:red">⚠️ 网络错误：${err.message}</p>`;
+
+        // 下载文件
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = selectedFile.name.replace(/\.docx$/, '.md');
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        showStatus('✅ 转换成功！文件已开始下载', 'success');
+
+      } catch (error) {
+        console.error('Error:', error);
+        showStatus(`❌ 转换失败: ${error.message}`, 'error');
       } finally {
-        btn.disabled = false;
-        loading.style.display = 'none';
+        convertBtn.disabled = false;
+        convertBtn.innerHTML = '转换为 Markdown';
       }
     });
+
+    function showStatus(message, type) {
+      statusDiv.className = `status ${type}`;
+      statusDiv.innerHTML = message;
+      statusDiv.style.display = 'block';
+
+      // 5秒后自动隐藏（错误和成功消息保留更长时间）
+      if (type === 'info') {
+        setTimeout(() => {
+          if (statusDiv.className === `status ${type}`) {
+            statusDiv.style.display = 'none';
+          }
+        }, 5000);
+      }
+    }
   </script>
 </body>
+
 </html>
